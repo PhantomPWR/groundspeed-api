@@ -1,16 +1,92 @@
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+"""
+SQLAlchemy database models for the Groundspeed Records application.
+"""
 
-Base = declarative_base()
+import datetime                          # Standard: Date and time utilities
+from sqlalchemy import (                 # Third Party: Database column types
+    Column, Integer, String, 
+    Float, ForeignKey, DateTime
+)
+from sqlalchemy.orm import relationship  # Third Party: Model relationships
+from app.database import Base            # Local: Base class for models
 
 
-# Example model - customize based on your needs
-class User(Base):
-    __tablename__ = "users"
+class Category(Base):
+    """
+    Represents the top-level classification of aircraft.
+    Examples: 'Commercial', 'Military', 'General Aviation'.
+    """
+    __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    name = Column(String, unique=True)
+
+    # Relationships
+    manufacturers = relationship("Manufacturer", back_populates="category")
+
+    def __repr__(self):
+        return f"<Category {self.name}>"
+
+
+class Manufacturer(Base):
+    """
+    Represents an aircraft manufacturer.
+    Belongs to a Category (e.g., 'Boeing' belongs to 'Commercial').
+    """
+    __tablename__ = "manufacturers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+
+    # Relationships
+    category = relationship("Category", back_populates="manufacturers")
+    aircraft_models = relationship(
+        "AircraftModel", back_populates="manufacturer"
+    )
+
+    def __repr__(self):
+        return f"<Manufacturer {self.name}>"
+
+
+class AircraftModel(Base):
+    """
+    Represents a specific model or variant of an aircraft.
+    Belongs to a Manufacturer (e.g., '737-800' belongs to 'Boeing').
+    """
+    __tablename__ = "aircraft_models"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    manufacturer_id = Column(Integer, ForeignKey("manufacturers.id"))
+
+    # Relationships
+    manufacturer = relationship(
+        "Manufacturer", back_populates="aircraft_models"
+    )
+    records = relationship("SpeedRecord", back_populates="aircraft_model")
+
+    def __repr__(self):
+        return f"<AircraftModel {self.name}>"
+
+
+class SpeedRecord(Base):
+    """
+    Represents an individual groundspeed record submitted by a pilot.
+    """
+    __tablename__ = "records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pilot_name = Column(String)
+    groundspeed = Column(Float)
+    photo_url = Column(String)
+    description = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    model_id = Column(Integer, ForeignKey("aircraft_models.id"))
+
+    # Relationships
+    aircraft_model = relationship("AircraftModel", back_populates="records")
+
+    def __repr__(self):
+        return f"<SpeedRecord {self.pilot_name}: {self.groundspeed}kts>"
