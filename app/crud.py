@@ -36,16 +36,18 @@ def create_category(db: Session, category: schemas.CategoryCreate):
 
 
 def update_category(
-    db: Session, 
-    category_id: int, 
-    category_update: schemas.CategoryCreate
+    db: Session,
+    category_id: int,
+    category_update: schemas.CategoryUpdate
 ):
     """
-    Updates an existing category name.
+    Updates an existing category.
     """
     db_category = get_category(db, category_id)
     if db_category:
-        db_category.name = category_update.name
+        update_data = category_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_category, key, value)
         db.commit()
         db.refresh(db_category)
     return db_category
@@ -101,15 +103,16 @@ def create_manufacturer(db: Session, manufacturer: schemas.ManufacturerCreate):
 def update_manufacturer(
     db: Session,
     manufacturer_id: int,
-    manufacturer_update: schemas.ManufacturerCreate
+    manufacturer_update: schemas.ManufacturerUpdate
 ):
     """
     Updates an existing manufacturer's details.
     """
     db_man = get_manufacturer(db, manufacturer_id)
     if db_man:
-        db_man.name = manufacturer_update.name
-        db_man.category_id = manufacturer_update.category_id
+        update_data = manufacturer_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_man, key, value)
         db.commit()
         db.refresh(db_man)
     return db_man
@@ -141,13 +144,22 @@ def get_aircraft_models(db: Session, manufacturer_id: int = None):
     return query.all()
 
 
+def get_aircraft_model(db: Session, aircraft_model_id: int):
+    """
+    Fetches a single aircraft model by its ID.
+    """
+    return db.query(models.AircraftModel).filter(
+        models.AircraftModel.id == aircraft_model_id
+    ).first()
+
+
 def create_aircraft_model(
     db: Session,
     aircraft_model: schemas.AircraftModelCreate,
     image_url: str = None
 ):
     """
-    Creates a new aircraft model with full technical specifications.
+    Creates a new aircraft model with technical specifications.
     """
     db_model = models.AircraftModel(
         name=aircraft_model.name,
@@ -166,6 +178,39 @@ def create_aircraft_model(
     db.commit()
     db.refresh(db_model)
     return db_model
+
+
+def update_aircraft_model(
+    db: Session,
+    aircraft_model_id: int,
+    model_update: schemas.AircraftModelUpdate,
+    image_url: str = None
+):
+    """
+    Updates an existing aircraft model's specs and optional image.
+    """
+    db_model = get_aircraft_model(db, aircraft_model_id)
+    if db_model:
+        update_data = model_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_model, key, value)
+        if image_url:
+            db_model.image_url = image_url
+        db.commit()
+        db.refresh(db_model)
+    return db_model
+
+
+def delete_aircraft_model(db: Session, aircraft_model_id: int):
+    """
+    Deletes an aircraft model from the database.
+    """
+    db_model = get_aircraft_model(db, aircraft_model_id)
+    if db_model:
+        db.delete(db_model)
+        db.commit()
+        return True
+    return False
 
 
 # --- SPEED RECORD CRUD ---

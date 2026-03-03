@@ -2,9 +2,9 @@
 Pydantic schemas for data validation and API responses.
 """
 
-from pydantic import BaseModel, ConfigDict    # Third Party: Validation
 from datetime import datetime                 # Standard: Date types
-from typing import Optional, List             # Standard: Type hinting
+from typing import Optional                   # Standard: Type hinting
+from pydantic import BaseModel, ConfigDict    # Third Party: Validation
 
 
 # --- CATEGORY SCHEMAS ---
@@ -21,6 +21,13 @@ class CategoryCreate(CategoryBase):
     Data required to create a new category.
     """
     pass
+
+
+class CategoryUpdate(BaseModel):
+    """
+    Data for updating a category.
+    """
+    name: Optional[str] = None
 
 
 class Category(CategoryBase):
@@ -45,6 +52,14 @@ class ManufacturerCreate(ManufacturerBase):
     Data required to create a manufacturer linked to a category.
     """
     category_id: int
+
+
+class ManufacturerUpdate(BaseModel):
+    """
+    Data for updating a manufacturer.
+    """
+    name: Optional[str] = None
+    category_id: Optional[int] = None
 
 
 class Manufacturer(ManufacturerBase):
@@ -78,6 +93,22 @@ class AircraftModelCreate(AircraftModelBase):
     Data required to create a model, linked to a manufacturer.
     """
     manufacturer_id: int
+
+
+class AircraftModelUpdate(BaseModel):
+    """
+    Data for updating an aircraft model (all fields optional).
+    """
+    name: Optional[str] = None
+    passengers: Optional[str] = None
+    max_takeoff_weight: Optional[str] = None
+    max_landing_weight: Optional[str] = None
+    max_fuel_capacity: Optional[str] = None
+    max_range: Optional[str] = None
+    max_ceiling: Optional[str] = None
+    max_cruising_speed: Optional[str] = None
+    thrust_power: Optional[str] = None
+    manufacturer_id: Optional[int] = None
 
 
 class AircraftModel(AircraftModelBase):
