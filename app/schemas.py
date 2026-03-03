@@ -1,7 +1,13 @@
-from pydantic import BaseModel, ConfigDict
-from datetime import datetime
-from typing import Optional, List
+"""
+Pydantic schemas for data validation and API responses.
+"""
 
+from pydantic import BaseModel, ConfigDict    # Third Party: Validation
+from datetime import datetime                 # Standard: Date types
+from typing import Optional, List             # Standard: Type hinting
+
+
+# --- CATEGORY SCHEMAS ---
 
 class CategoryBase(BaseModel):
     """
@@ -25,6 +31,8 @@ class Category(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- MANUFACTURER SCHEMAS ---
+
 class ManufacturerBase(BaseModel):
     """
     Base properties for a manufacturer.
@@ -34,7 +42,7 @@ class ManufacturerBase(BaseModel):
 
 class ManufacturerCreate(ManufacturerBase):
     """
-    Data required to create a manufacturer, linked to a category.
+    Data required to create a manufacturer linked to a category.
     """
     category_id: int
 
@@ -48,11 +56,21 @@ class Manufacturer(ManufacturerBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- AIRCRAFT MODEL SCHEMAS ---
+
 class AircraftModelBase(BaseModel):
     """
-    Base properties for an aircraft model.
+    Base properties for an aircraft model including technical specs.
     """
     name: str
+    passengers: Optional[str] = "-"
+    max_takeoff_weight: Optional[str] = "-"
+    max_landing_weight: Optional[str] = "-"
+    max_fuel_capacity: Optional[str] = "-"
+    max_range: Optional[str] = "-"
+    max_ceiling: Optional[str] = "-"
+    max_cruising_speed: Optional[str] = "-"
+    thrust_power: Optional[str] = "-"
 
 
 class AircraftModelCreate(AircraftModelBase):
@@ -67,9 +85,12 @@ class AircraftModel(AircraftModelBase):
     The full Aircraft Model schema as returned by the API.
     """
     id: int
+    image_url: Optional[str] = None
     manufacturer_id: int
     model_config = ConfigDict(from_attributes=True)
 
+
+# --- SPEED RECORD SCHEMAS ---
 
 class SpeedRecordBase(BaseModel):
     """
@@ -82,8 +103,7 @@ class SpeedRecordBase(BaseModel):
 
 class SpeedRecordCreate(SpeedRecordBase):
     """
-    Data required to submit a new record. 
-    Note: The photo is handled as a separate file upload.
+    Data required to submit a new record.
     """
     model_id: int
 
@@ -96,5 +116,4 @@ class SpeedRecord(SpeedRecordBase):
     photo_url: str
     created_at: datetime
     model_id: int
-    
     model_config = ConfigDict(from_attributes=True)

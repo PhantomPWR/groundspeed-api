@@ -2,19 +2,18 @@
 SQLAlchemy database models for the Groundspeed Records application.
 """
 
-import datetime                          # Standard: Date and time utilities
-from sqlalchemy import (                 # Third Party: Database column types
+import datetime                     # Standard: Date and time utilities
+from sqlalchemy import (            # Third Party: Database column types
     Column, Integer, String, 
     Float, ForeignKey, DateTime
 )
-from sqlalchemy.orm import relationship  # Third Party: Model relationships
-from app.database import Base            # Local: Base class for models
+from sqlalchemy.orm import relationship # Third Party: Model relationships
+from app.database import Base       # Local: Base class for models
 
 
 class Category(Base):
     """
     Represents the top-level classification of aircraft.
-    Examples: 'Commercial', 'Military', 'General Aviation'.
     """
     __tablename__ = "categories"
 
@@ -31,7 +30,6 @@ class Category(Base):
 class Manufacturer(Base):
     """
     Represents an aircraft manufacturer.
-    Belongs to a Category (e.g., 'Boeing' belongs to 'Commercial').
     """
     __tablename__ = "manufacturers"
 
@@ -51,13 +49,24 @@ class Manufacturer(Base):
 
 class AircraftModel(Base):
     """
-    Represents a specific model or variant of an aircraft.
-    Belongs to a Manufacturer (e.g., '737-800' belongs to 'Boeing').
+    Represents a specific aircraft model and its technical specifications.
     """
     __tablename__ = "aircraft_models"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
+    name = Column(String, index=True)
+    image_url = Column(String, nullable=True)
+    
+    # Technical Specifications
+    passengers = Column(String, nullable=True)
+    max_takeoff_weight = Column(String, nullable=True)
+    max_landing_weight = Column(String, nullable=True)
+    max_fuel_capacity = Column(String, nullable=True)
+    max_range = Column(String, nullable=True)
+    max_ceiling = Column(String, nullable=True)
+    max_cruising_speed = Column(String, nullable=True)
+    thrust_power = Column(String, nullable=True)
+
     manufacturer_id = Column(Integer, ForeignKey("manufacturers.id"))
 
     # Relationships
