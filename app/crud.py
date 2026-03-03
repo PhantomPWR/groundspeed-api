@@ -75,6 +75,15 @@ def get_manufacturers(db: Session, category_id: int = None):
     return query.all()
 
 
+def get_manufacturer(db: Session, manufacturer_id: int):
+    """
+    Fetches a single manufacturer by its ID.
+    """
+    return db.query(models.Manufacturer).filter(
+        models.Manufacturer.id == manufacturer_id
+    ).first()
+
+
 def create_manufacturer(db: Session, manufacturer: schemas.ManufacturerCreate):
     """
     Creates a new manufacturer linked to a category.
@@ -87,6 +96,35 @@ def create_manufacturer(db: Session, manufacturer: schemas.ManufacturerCreate):
     db.commit()
     db.refresh(db_manufacturer)
     return db_manufacturer
+
+
+def update_manufacturer(
+    db: Session,
+    manufacturer_id: int,
+    manufacturer_update: schemas.ManufacturerCreate
+):
+    """
+    Updates an existing manufacturer's details.
+    """
+    db_man = get_manufacturer(db, manufacturer_id)
+    if db_man:
+        db_man.name = manufacturer_update.name
+        db_man.category_id = manufacturer_update.category_id
+        db.commit()
+        db.refresh(db_man)
+    return db_man
+
+
+def delete_manufacturer(db: Session, manufacturer_id: int):
+    """
+    Deletes a manufacturer from the database.
+    """
+    db_man = get_manufacturer(db, manufacturer_id)
+    if db_man:
+        db.delete(db_man)
+        db.commit()
+        return True
+    return False
 
 
 # --- AIRCRAFT MODEL CRUD ---
