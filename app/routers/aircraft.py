@@ -2,15 +2,15 @@
 Aircraft management endpoints for categories, manufacturers, and models.
 """
 
-import shutil                       # Standard: File operations
-from typing import List, Optional   # Standard: Type hinting
-from fastapi import (               # Third Party: Web tools
-    APIRouter, Depends, HTTPException, 
+import shutil                                 # Standard: File operations
+from typing import List, Optional             # Standard: Type hinting
+from fastapi import (                         # Third Party: Web tools
+    APIRouter, Depends, HTTPException,
     status, Form, UploadFile, File
 )
-from sqlalchemy.orm import Session  # Third Party: DB session
-from app import crud, schemas, models, utils # Local: App modules
-from app.database import get_db     # Local: DB connection helper
+from sqlalchemy.orm import Session            # Third Party: DB session
+from app import crud, schemas, models, utils  # Local: App modules
+from app.database import get_db               # Local: DB connection helper
 
 router = APIRouter(
     prefix="/aircraft",
@@ -50,7 +50,7 @@ def update_category(
     db: Session = Depends(get_db)
 ):
     """
-    Updates an existing category's name.
+    Updates an existing category name.
     """
     db_cat = crud.update_category(db, category_id, category)
     if not db_cat:
