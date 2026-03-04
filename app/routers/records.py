@@ -28,7 +28,7 @@ class RecordForm:
         pilot_name: Optional[str] = Form(None),
         airline: Optional[str] = Form(None),
         flight_date: Optional[date] = Form(None),
-        description: Optional[str] = Form(None)
+        description: Optional[str] = Form(None),
     ):
         self.groundspeed = groundspeed
         self.model_id = model_id

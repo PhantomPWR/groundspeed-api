@@ -250,7 +250,7 @@ def create_speed_record(
         flight_date=record.flight_date,
         description=record.description,
         model_id=record.model_id,
-        photo_url=photo_url
+        photo_url=photo_url,
     )
     db.add(db_record)
     db.commit()
