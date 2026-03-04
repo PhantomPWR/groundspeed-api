@@ -96,7 +96,7 @@ def create_manufacturer(
     db_manufacturer = models.Manufacturer(
         name=manufacturer.name,
         category_id=manufacturer.category_id,
-        logo_url=manufacturer.logo_url  # Now part of the object
+        logo_url=manufacturer.logo_url
     )
     db.add(db_manufacturer)
     db.commit()
@@ -105,8 +105,8 @@ def create_manufacturer(
 
 
 def update_manufacturer(
-    db: Session, 
-    manufacturer_id: int, 
+    db: Session,
+    manufacturer_id: int,
     manufacturer_update: schemas.ManufacturerUpdate
 ):
     """
@@ -114,7 +114,6 @@ def update_manufacturer(
     """
     db_man = get_manufacturer(db, manufacturer_id)
     if db_man:
-        # This automatically handles logo_url if it exists in the update
         update_data = manufacturer_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_man, key, value)
@@ -227,6 +226,15 @@ def get_records(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.SpeedRecord).offset(skip).limit(limit).all()
 
 
+def get_record(db: Session, record_id: int):
+    """
+    Fetches a single groundspeed record by its ID.
+    """
+    return db.query(models.SpeedRecord).filter(
+        models.SpeedRecord.id == record_id
+    ).first()
+
+
 def create_speed_record(
     db: Session,
     record: schemas.SpeedRecordCreate,
@@ -237,7 +245,9 @@ def create_speed_record(
     """
     db_record = models.SpeedRecord(
         pilot_name=record.pilot_name,
+        airline=record.airline,
         groundspeed=record.groundspeed,
+        flight_date=record.flight_date,
         description=record.description,
         model_id=record.model_id,
         photo_url=photo_url
@@ -246,3 +256,36 @@ def create_speed_record(
     db.commit()
     db.refresh(db_record)
     return db_record
+
+
+def update_speed_record(
+    db: Session,
+    record_id: int,
+    record_update: schemas.SpeedRecordBase,
+    photo_url: str = None
+):
+    """
+    Updates an existing speed record's details and optional photo.
+    """
+    db_record = get_record(db, record_id)
+    if db_record:
+        update_data = record_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_record, key, value)
+        if photo_url:
+            db_record.photo_url = photo_url
+        db.commit()
+        db.refresh(db_record)
+    return db_record
+
+
+def delete_speed_record(db: Session, record_id: int):
+    """
+    Deletes a speed record from the database.
+    """
+    db_record = get_record(db, record_id)
+    if db_record:
+        db.delete(db_record)
+        db.commit()
+        return True
+    return False

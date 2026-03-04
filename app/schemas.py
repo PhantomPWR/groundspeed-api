@@ -2,8 +2,8 @@
 Pydantic schemas for data validation and API responses.
 """
 
-from datetime import datetime                 # Standard: Date types
-from typing import Optional                   # Standard: Type hinting
+from datetime import datetime, date           # Standard: Date types
+from typing import Optional, List             # Standard: Type hinting
 from pydantic import BaseModel, ConfigDict    # Third Party: Validation
 
 
@@ -130,9 +130,11 @@ class SpeedRecordBase(BaseModel):
     """
     Base properties for a groundspeed record.
     """
-    pilot_name: str
+    pilot_name: Optional[str] = None
+    airline: Optional[str] = None
     groundspeed: float
-    description: Optional[str] = None
+    flight_date: Optional[date] = None  # Pydantic handles ISO strings to dates
+    description: Optional[str] = None   # Notes
 
 
 class SpeedRecordCreate(SpeedRecordBase):

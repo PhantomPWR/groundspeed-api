@@ -2,13 +2,13 @@
 SQLAlchemy database models for the Groundspeed Records application.
 """
 
-import datetime                              # Standard: Date and time utilities
-from sqlalchemy import (                     # Third Party: Database column types
-    Column, Integer, String, 
-    Float, ForeignKey, DateTime
+import datetime                          # Standard: Date and time utilities
+from sqlalchemy import (                 # Third Party: Database column types
+    Column, Integer, String,
+    Float, ForeignKey, DateTime, Date
 )
-from sqlalchemy.orm import relationship      # Third Party: Model relationships
-from app.database import Base                # Local: Base class for models
+from sqlalchemy.orm import relationship  # Third Party: Model relationships
+from app.database import Base            # Local: Base class for models
 
 
 class Category(Base):
@@ -35,7 +35,7 @@ class Manufacturer(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    logo_url = Column(String, nullable=True) # Added for the logo
+    logo_url = Column(String, nullable=True)  # Added for the logo
     category_id = Column(Integer, ForeignKey("categories.id"))
 
     # Relationships
@@ -87,16 +87,22 @@ class SpeedRecord(Base):
     __tablename__ = "records"
 
     id = Column(Integer, primary_key=True, index=True)
-    pilot_name = Column(String)
-    groundspeed = Column(Float)
-    photo_url = Column(String)
-    description = Column(String, nullable=True)
+    pilot_name = Column(String, nullable=True)   # Now optional
+    airline = Column(String, nullable=True)      # New: Optional airline name
+    groundspeed = Column(Float, nullable=False)
+    photo_url = Column(String, nullable=False)
+    description = Column(String, nullable=True)  # Used for "Notes"
 
+    # New: The actual date of the flight
+    flight_date = Column(Date, nullable=True)
+
+    # The timestamp of when the record was added to our system
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
     model_id = Column(Integer, ForeignKey("aircraft_models.id"))
 
     # Relationships
     aircraft_model = relationship("AircraftModel", back_populates="records")
 
     def __repr__(self):
-        return f"<SpeedRecord {self.pilot_name}: {self.groundspeed}kts>"
+        return f"<SpeedRecord {self.groundspeed}kt by {self.pilot_name}>"
