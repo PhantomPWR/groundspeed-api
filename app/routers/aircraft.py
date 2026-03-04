@@ -13,6 +13,36 @@ from app import crud, schemas, models, utils  # Local: App modules
 from app.database import get_db               # Local: DB connection helper
 
 
+class ManufacturerForm:
+    """
+    Dependency class to group manufacturer form fields for creation.
+    """
+    # pylint: disable=too-few-public-methods
+
+    def __init__(
+        self,
+        name: str = Form(...),
+        category_id: int = Form(...)
+    ):
+        self.name = name
+        self.category_id = category_id
+
+
+class ManufacturerUpdateForm:
+    """
+    Dependency class to group manufacturer form fields for updates.
+    """
+    # pylint: disable=too-few-public-methods
+
+    def __init__(
+        self,
+        name: Optional[str] = Form(None),
+        category_id: Optional[int] = Form(None)
+    ):
+        self.name = name
+        self.category_id = category_id
+
+
 class AircraftForm:
     """
     Dependency class to group aircraft form fields for creation.
@@ -48,7 +78,6 @@ class AircraftForm:
 class AircraftUpdateForm:
     """
     Dependency class to group aircraft form fields for updates.
-    All fields are optional to allow partial updates.
     """
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-few-public-methods
@@ -140,55 +169,73 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
 # --- MANUFACTURER ROUTES ---
 
-@router.get("/manufacturers", response_model=List[schemas.Manufacturer])
-def read_manufacturers(category_id: int = None, db: Session = Depends(get_db)):
-    """
-    Returns manufacturers, optionally filtered by category.
-    """
-    return crud.get_manufacturers(db, category_id=category_id)
-
-
 @router.post("/manufacturers", response_model=schemas.Manufacturer)
-def create_manufacturer(
-    manufacturer: schemas.ManufacturerCreate,
+async def create_manufacturer(
+    form: ManufacturerForm = Depends(),
+    logo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
     """
-    Creates a manufacturer linked to a category.
+    Creates a manufacturer with an optional logo.
     """
-    return crud.create_manufacturer(db=db, manufacturer=manufacturer)
+    # We still check if Category exists for data integrity
+    cat = db.query(models.Category).filter(
+        models.Category.id == form.category_id
+    ).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    logo_path = None
+    if logo:
+        # Category name removed from here
+        fn = utils.generate_manufacturer_logo_filename(form.name, logo.filename)
+        logo_path = f"static/uploads/{fn}"
+        with open(logo_path, "wb") as buffer:
+            shutil.copyfileobj(logo.file, buffer)
+
+    man_data = schemas.ManufacturerCreate(
+        name=form.name,
+        category_id=form.category_id,
+        logo_url=logo_path
+    )
+    return crud.create_manufacturer(db, man_data)
 
 
 @router.put(
     "/manufacturers/{manufacturer_id}",
     response_model=schemas.Manufacturer
 )
-def update_manufacturer(
+async def update_manufacturer(
     manufacturer_id: int,
-    manufacturer: schemas.ManufacturerUpdate,
+    form: ManufacturerUpdateForm = Depends(),
+    logo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
     """
-    Updates a manufacturer's name or category.
+    Updates a manufacturer's details and optional logo.
     """
-    db_man = crud.update_manufacturer(db, manufacturer_id, manufacturer)
+    db_man = crud.get_manufacturer(db, manufacturer_id)
     if not db_man:
         raise HTTPException(status_code=404, detail="Manufacturer not found")
-    return db_man
 
+    logo_path = None
+    if logo:
+        # Use new name if provided, otherwise fallback to existing DB name
+        name_for_file = form.name or db_man.name
+        fn = utils.generate_manufacturer_logo_filename(
+            name_for_file, 
+            logo.filename
+        )
+        logo_path = f"static/uploads/{fn}"
+        with open(logo_path, "wb") as buffer:
+            shutil.copyfileobj(logo.file, buffer)
 
-@router.delete(
-    "/manufacturers/{manufacturer_id}",
-    status_code=status.HTTP_204_NO_CONTENT
-)
-def delete_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
-    """
-    Deletes a manufacturer by ID.
-    """
-    success = crud.delete_manufacturer(db, manufacturer_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Manufacturer not found")
-    return None
+    update_data = schemas.ManufacturerUpdate(
+        name=form.name,
+        category_id=form.category_id,
+        logo_url=logo_path
+    )
+    return crud.update_manufacturer(db, manufacturer_id, update_data)
 
 
 # --- AIRCRAFT MODEL ROUTES ---

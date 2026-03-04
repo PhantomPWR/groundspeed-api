@@ -2,13 +2,13 @@
 SQLAlchemy database models for the Groundspeed Records application.
 """
 
-import datetime                     # Standard: Date and time utilities
-from sqlalchemy import (            # Third Party: Database column types
+import datetime                              # Standard: Date and time utilities
+from sqlalchemy import (                     # Third Party: Database column types
     Column, Integer, String, 
     Float, ForeignKey, DateTime
 )
-from sqlalchemy.orm import relationship # Third Party: Model relationships
-from app.database import Base       # Local: Base class for models
+from sqlalchemy.orm import relationship      # Third Party: Model relationships
+from app.database import Base                # Local: Base class for models
 
 
 class Category(Base):
@@ -35,6 +35,7 @@ class Manufacturer(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
+    logo_url = Column(String, nullable=True) # Added for the logo
     category_id = Column(Integer, ForeignKey("categories.id"))
 
     # Relationships

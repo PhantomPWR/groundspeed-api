@@ -45,6 +45,7 @@ class ManufacturerBase(BaseModel):
     Base properties for a manufacturer.
     """
     name: str
+    logo_url: Optional[str] = None  # Added here so it's inherited
 
 
 class ManufacturerCreate(ManufacturerBase):
@@ -60,6 +61,7 @@ class ManufacturerUpdate(BaseModel):
     """
     name: Optional[str] = None
     category_id: Optional[int] = None
+    logo_url: Optional[str] = None  # Added for updates
 
 
 class Manufacturer(ManufacturerBase):
@@ -68,6 +70,7 @@ class Manufacturer(ManufacturerBase):
     """
     id: int
     category_id: int
+    logo_url: Optional[str] = None  # Added to the response
     model_config = ConfigDict(from_attributes=True)
 
 

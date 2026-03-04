@@ -86,13 +86,17 @@ def get_manufacturer(db: Session, manufacturer_id: int):
     ).first()
 
 
-def create_manufacturer(db: Session, manufacturer: schemas.ManufacturerCreate):
+def create_manufacturer(
+    db: Session,
+    manufacturer: schemas.ManufacturerCreate
+):
     """
-    Creates a new manufacturer linked to a category.
+    Creates a new manufacturer using the schema data.
     """
     db_manufacturer = models.Manufacturer(
         name=manufacturer.name,
-        category_id=manufacturer.category_id
+        category_id=manufacturer.category_id,
+        logo_url=manufacturer.logo_url  # Now part of the object
     )
     db.add(db_manufacturer)
     db.commit()
@@ -101,15 +105,16 @@ def create_manufacturer(db: Session, manufacturer: schemas.ManufacturerCreate):
 
 
 def update_manufacturer(
-    db: Session,
-    manufacturer_id: int,
+    db: Session, 
+    manufacturer_id: int, 
     manufacturer_update: schemas.ManufacturerUpdate
 ):
     """
-    Updates an existing manufacturer's details.
+    Updates a manufacturer using the dynamic attribute pattern.
     """
     db_man = get_manufacturer(db, manufacturer_id)
     if db_man:
+        # This automatically handles logo_url if it exists in the update
         update_data = manufacturer_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_man, key, value)
