@@ -1,31 +1,35 @@
 """
-Database connection configuration and session management.
+Database connection configuration with naming conventions for migrations.
 """
 
-from sqlalchemy import create_engine                     # Third Party: DB engine
-from sqlalchemy.ext.declarative import declarative_base  # Third Party: Models
-from sqlalchemy.orm import sessionmaker                  # Third Party: Session tool
+from sqlalchemy import create_engine, MetaData    # Added MetaData
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Connection string for the SQLite database file
+# 1. Define a naming convention for SQLite constraints
+# This prevents the "Constraint must have a name" error in Alembic
+naming_convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///./groundspeed.db"
 
-# Create the engine (check_same_thread is required for SQLite)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 
-# Create a session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for all database models
-Base = declarative_base()
+# 2. Pass the convention to the Base class
+Base = declarative_base(metadata=MetaData(naming_convention=naming_convention))
 
 
 def get_db():
-    """
-    Dependency function that yields a new database session for each 
-    request and ensures it is closed after the request is finished.
-    """
+    """Dependency for DB session management."""
     db = SessionLocal()
     try:
         yield db

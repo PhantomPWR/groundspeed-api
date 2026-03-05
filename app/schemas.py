@@ -174,3 +174,46 @@ class SpeedRecord(SpeedRecordBase):
     aircraft_model: AircraftModelMinimal
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- USER SCHEMAS ---
+
+class UserBase(BaseModel):
+    """
+    Base user properties.
+    """
+    email: str
+    full_name: Optional[str] = None
+
+
+class UserCreate(UserBase):
+    """
+    Data required for registration.
+    """
+    password: str
+
+
+class UserUpdate(UserBase):
+    """
+    Data for updating a profile.
+    """
+    password: Optional[str] = None
+    role: Optional[str] = None
+
+
+class User(UserBase):
+    """
+    User data returned to client.
+    """
+    id: int
+    role: str
+    is_active: bool
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    """
+    Structure of the login response.
+    """
+    access_token: str
+    token_type: str

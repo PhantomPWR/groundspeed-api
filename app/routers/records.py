@@ -4,7 +4,7 @@ Endpoints for submitting and retrieving groundspeed records.
 
 import os                                     # Standard: OS tools
 import shutil                                 # Standard: File operations
-from datetime import date                     # Standard: Date type (FIXED)
+from datetime import date                     # Standard: Date type
 from typing import List, Optional             # Standard: Type hinting
 from fastapi import (                         # Third Party: Web tools
     APIRouter, Depends, HTTPException,
@@ -13,6 +13,9 @@ from fastapi import (                         # Third Party: Web tools
 from sqlalchemy.orm import Session            # Third Party: DB session
 from app import crud, models, schemas, utils  # Local: App modules
 from app.database import get_db               # Local: DB connection helper
+from app.dependencies import (                # Local: Auth dependencies
+    get_current_user, get_current_active_admin
+)
 
 
 class RecordForm:
@@ -28,7 +31,7 @@ class RecordForm:
         pilot_name: Optional[str] = Form(None),
         airline: Optional[str] = Form(None),
         flight_date: Optional[date] = Form(None),
-        description: Optional[str] = Form(None),
+        description: Optional[str] = Form(None)
     ):
         self.groundspeed = groundspeed
         self.model_id = model_id
@@ -69,26 +72,24 @@ router = APIRouter(
 
 @router.get("/", response_model=List[schemas.SpeedRecord])
 def read_records(
-    model_id: Optional[int] = None,  # ADD THIS PARAMETER
+    model_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """
-    Returns records, optionally filtered by aircraft model.
+    Returns a paginated list of speed records. Public access.
     """
     query = db.query(models.SpeedRecord)
-
     if model_id:
         query = query.filter(models.SpeedRecord.model_id == model_id)
-
     return query.offset(skip).limit(limit).all()
 
 
 @router.get("/{record_id}", response_model=schemas.SpeedRecord)
 def read_record(record_id: int, db: Session = Depends(get_db)):
     """
-    Returns a single groundspeed record by ID.
+    Returns a single groundspeed record by ID. Public access.
     """
     db_record = crud.get_record(db, record_id)
     if not db_record:
@@ -104,10 +105,11 @@ def read_record(record_id: int, db: Session = Depends(get_db)):
 async def create_record(
     form: RecordForm = Depends(),
     photo: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     """
-    Handles submission of a record including custom-named photo save.
+    Handles submission of a record. Restricted to registered users.
     """
     model = db.query(models.AircraftModel).filter(
         models.AircraftModel.id == form.model_id
@@ -116,6 +118,7 @@ async def create_record(
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
+    # Generate professional filename
     new_fn = utils.generate_record_filename(
         category=model.manufacturer.category.name,
         manufacturer=model.manufacturer.name,
@@ -125,17 +128,13 @@ async def create_record(
     )
 
     file_path = f"static/uploads/{new_fn}"
-
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
+    # Link the record to the current user
     record_data = schemas.SpeedRecordCreate(
-        pilot_name=form.pilot_name,
-        airline=form.airline,
-        groundspeed=form.groundspeed,
-        flight_date=form.flight_date,
-        model_id=form.model_id,
-        description=form.description
+        **form.__dict__,
+        user_id=current_user.id
     )
 
     return crud.create_speed_record(
@@ -148,25 +147,36 @@ async def update_record(
     record_id: int,
     form: RecordUpdateForm = Depends(),
     photo: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
 ):
     """
-    Updates a speed record's details and optional proof photo.
+    Updates a record. Users can only update their own records.
+    Admin/Owner can update any record.
     """
     db_record = crud.get_record(db, record_id)
     if not db_record:
         raise HTTPException(status_code=404, detail="Record not found")
 
+    # Check Ownership/Permissions
+    is_authorized = (
+        current_user.role in ["owner", "admin"] or
+        db_record.user_id == current_user.id
+    )
+    if not is_authorized:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to edit this record"
+        )
+
     photo_path = None
     if photo:
         if db_record.photo_url and os.path.exists(db_record.photo_url):
             os.remove(db_record.photo_url)
-            
+
         mid = form.model_id or db_record.model_id
-        model = db.query(models.AircraftModel).filter(
-            models.AircraftModel.id == mid
-        ).first()
-        
+        model = db.query(models.AircraftModel).get(mid)
+
         new_fn = utils.generate_record_filename(
             category=model.manufacturer.category.name,
             manufacturer=model.manufacturer.name,
@@ -175,20 +185,13 @@ async def update_record(
             original_filename=photo.filename
         )
         photo_path = f"static/uploads/{new_fn}"
-        
         with open(photo_path, "wb") as buffer:
             shutil.copyfileobj(photo.file, buffer)
 
-    update_data = schemas.SpeedRecordBase(
-        pilot_name=form.pilot_name,
-        airline=form.airline,
-        groundspeed=form.groundspeed,
-        flight_date=form.flight_date,
-        description=form.description
-    )
+    update_data = schemas.SpeedRecordBase(**form.__dict__)
 
     return crud.update_speed_record(
-        db=db, 
+        db=db,
         record_id=record_id,
         record_update=update_data,
         photo_url=photo_path
@@ -196,9 +199,13 @@ async def update_record(
 
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_record(record_id: int, db: Session = Depends(get_db)):
+def delete_record(
+    record_id: int,
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_admin)
+):
     """
-    Deletes a record and its associated image file.
+    Deletes a record and its photo. Restricted to Admin/Owner.
     """
     db_record = crud.get_record(db, record_id)
     if not db_record:

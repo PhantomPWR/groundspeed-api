@@ -5,10 +5,28 @@ SQLAlchemy database models for the Groundspeed Records application.
 import datetime                          # Standard: Date and time utilities
 from sqlalchemy import (                 # Third Party: Database column types
     Column, Integer, String,
-    Float, ForeignKey, DateTime, Date
+    Float, ForeignKey, DateTime, Date, Boolean
 )
 from sqlalchemy.orm import relationship  # Third Party: Model relationships
 from app.database import Base            # Local: Base class for models
+
+
+class User(Base):
+    """
+    Represents a system user with a specific role.
+    Roles: 'owner', 'admin', 'user'
+    """
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    role = Column(String, default="user")  # owner, admin, user
+    is_active = Column(Boolean, default=True)
+
+    # Relationships
+    records = relationship("SpeedRecord", back_populates="user")
 
 
 class Category(Base):
@@ -103,6 +121,10 @@ class SpeedRecord(Base):
 
     # Relationships
     aircraft_model = relationship("AircraftModel", back_populates="records")
+
+    # Link record to the user who submitted it
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="records")
 
     def __repr__(self):
         return f"<SpeedRecord {self.groundspeed}kt by {self.pilot_name}>"

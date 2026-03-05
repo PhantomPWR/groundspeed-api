@@ -12,6 +12,9 @@ from fastapi import (                         # Third Party: Web tools
 from sqlalchemy.orm import Session            # Third Party: DB session
 from app import crud, schemas, models, utils  # Local: App modules
 from app.database import get_db               # Local: DB connection helper
+from app.dependencies import (                # Local: Auth dependencies
+    get_current_active_owner
+)
 
 
 class ManufacturerForm:
@@ -19,6 +22,7 @@ class ManufacturerForm:
     Dependency class to group manufacturer form fields for creation.
     """
     # pylint: disable=too-few-public-methods
+
     def __init__(
         self,
         name: str = Form(...),
@@ -33,6 +37,7 @@ class ManufacturerUpdateForm:
     Dependency class to group manufacturer form fields for updates.
     """
     # pylint: disable=too-few-public-methods
+
     def __init__(
         self,
         name: Optional[str] = Form(None),
@@ -48,6 +53,7 @@ class AircraftForm:
     """
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-few-public-methods
+
     def __init__(
         self,
         name: str = Form(...),
@@ -79,6 +85,7 @@ class AircraftUpdateForm:
     """
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-few-public-methods
+
     def __init__(
         self,
         name: Optional[str] = Form(None),
@@ -127,7 +134,10 @@ def read_categories(db: Session = Depends(get_db)):
 )
 def create_category(
     category: schemas.CategoryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    # Underscore prefix to indicate this dependency is only for access control,
+    # not used in the function
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Creates a new category. Checks for unique names first.
@@ -147,7 +157,8 @@ def create_category(
 def update_category(
     category_id: int,
     category: schemas.CategoryUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Updates a category's name.
@@ -162,7 +173,11 @@ def update_category(
     "/categories/{category_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-def delete_category(category_id: int, db: Session = Depends(get_db)):
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
+):
     """
     Deletes a category by ID.
     """
@@ -183,7 +198,7 @@ def read_manufacturers(category_id: int = None, db: Session = Depends(get_db)):
 
 
 @router.get(
-    "/manufacturers/{manufacturer_id}", 
+    "/manufacturers/{manufacturer_id}",
     response_model=schemas.Manufacturer
 )
 def read_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
@@ -200,7 +215,8 @@ def read_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
 async def create_manufacturer(
     form: ManufacturerForm = Depends(),
     logo: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Creates a manufacturer with an optional logo.
@@ -234,7 +250,8 @@ async def update_manufacturer(
     manufacturer_id: int,
     form: ManufacturerUpdateForm = Depends(),
     logo: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Updates a manufacturer and cleans up the old logo if a new one is sent.
@@ -245,12 +262,11 @@ async def update_manufacturer(
 
     logo_path = None
     if logo:
-        # Delete old file
         if db_man.logo_url and os.path.exists(db_man.logo_url):
             os.remove(db_man.logo_url)
-            
+
         fn = utils.generate_manufacturer_logo_filename(
-            form.name or db_man.name, 
+            form.name or db_man.name,
             logo.filename
         )
         logo_path = f"static/uploads/{fn}"
@@ -269,7 +285,11 @@ async def update_manufacturer(
     "/manufacturers/{manufacturer_id}",
     status_code=status.HTTP_204_NO_CONTENT
 )
-def delete_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
+def delete_manufacturer(
+    manufacturer_id: int,
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
+):
     """
     Deletes a manufacturer and its logo file.
     """
@@ -309,7 +329,8 @@ def read_model(model_id: int, db: Session = Depends(get_db)):
 async def create_aircraft_model(
     form: AircraftForm = Depends(),
     image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Creates a new aircraft model with technical specs.
@@ -355,7 +376,8 @@ async def update_aircraft_model(
     model_id: int,
     form: AircraftUpdateForm = Depends(),
     image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
 ):
     """
     Updates an aircraft model and cleans up the old photo if necessary.
@@ -380,18 +402,7 @@ async def update_aircraft_model(
         with open(image_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
 
-    update_data = schemas.AircraftModelUpdate(
-        name=form.name,
-        manufacturer_id=form.manufacturer_id,
-        passengers=form.passengers,
-        max_takeoff_weight=form.max_takeoff_weight,
-        max_landing_weight=form.max_landing_weight,
-        max_fuel_capacity=form.max_fuel_capacity,
-        max_range=form.max_range,
-        max_ceiling=form.max_ceiling,
-        max_cruising_speed=form.max_cruising_speed,
-        thrust_power=form.thrust_power
-    )
+    update_data = schemas.AircraftModelUpdate(**form.__dict__)
 
     return crud.update_aircraft_model(
         db=db,
@@ -402,7 +413,11 @@ async def update_aircraft_model(
 
 
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_aircraft_model(model_id: int, db: Session = Depends(get_db)):
+def delete_aircraft_model(
+    model_id: int,
+    db: Session = Depends(get_db),
+    _current_user: models.User = Depends(get_current_active_owner)
+):
     """
     Deletes an aircraft model and its technical photo.
     """
