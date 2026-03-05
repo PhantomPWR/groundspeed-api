@@ -289,3 +289,11 @@ def delete_speed_record(db: Session, record_id: int):
         db.commit()
         return True
     return False
+
+
+# --- USERS CRUD ---
+def get_users(db: Session, skip: int = 0, limit: int = 100):
+    """
+    Fetches users with pagination. Admin access only.
+    """
+    return db.query(models.User).offset(skip).limit(limit).all()

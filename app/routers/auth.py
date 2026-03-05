@@ -12,6 +12,7 @@ from fastapi.security import (                     # Third Party: Auth
 from sqlalchemy.orm import Session                 # Third Party: DB session
 from app import crud, schemas, models, auth_utils  # Local: App modules
 from app.database import get_db                    # Local: DB helper
+from app.dependencies import get_current_user      # Local: Auth dependencies
 
 router = APIRouter(
     prefix="/auth",
@@ -74,5 +75,13 @@ def login_for_access_token(
     access_token = auth_utils.create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/my_account", response_model=schemas.User)
+def read_user_account(current_user: models.User = Depends(get_current_user)):
+    """
+    Returns the profile details of the currently authenticated user.
+    """
+    return current_user
