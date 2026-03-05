@@ -2,6 +2,7 @@
 Aircraft management endpoints for categories, manufacturers, and models.
 """
 
+import os                                     # Standard: File tools
 import shutil                                 # Standard: File operations
 from typing import List, Optional             # Standard: Type hinting
 from fastapi import (                         # Third Party: Web tools
@@ -18,7 +19,6 @@ class ManufacturerForm:
     Dependency class to group manufacturer form fields for creation.
     """
     # pylint: disable=too-few-public-methods
-
     def __init__(
         self,
         name: str = Form(...),
@@ -33,7 +33,6 @@ class ManufacturerUpdateForm:
     Dependency class to group manufacturer form fields for updates.
     """
     # pylint: disable=too-few-public-methods
-
     def __init__(
         self,
         name: Optional[str] = Form(None),
@@ -49,7 +48,6 @@ class AircraftForm:
     """
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-few-public-methods
-
     def __init__(
         self,
         name: str = Form(...),
@@ -81,7 +79,6 @@ class AircraftUpdateForm:
     """
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-few-public-methods
-
     def __init__(
         self,
         name: Optional[str] = Form(None),
@@ -133,8 +130,16 @@ def create_category(
     db: Session = Depends(get_db)
 ):
     """
-    Creates a new category.
+    Creates a new category. Checks for unique names first.
     """
+    existing = db.query(models.Category).filter(
+        models.Category.name == category.name
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Category '{category.name}' already exists."
+        )
     return crud.create_category(db=db, category=category)
 
 
@@ -169,6 +174,28 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
 # --- MANUFACTURER ROUTES ---
 
+@router.get("/manufacturers", response_model=List[schemas.Manufacturer])
+def read_manufacturers(category_id: int = None, db: Session = Depends(get_db)):
+    """
+    Returns manufacturers, optionally filtered by category.
+    """
+    return crud.get_manufacturers(db, category_id=category_id)
+
+
+@router.get(
+    "/manufacturers/{manufacturer_id}", 
+    response_model=schemas.Manufacturer
+)
+def read_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
+    """
+    Returns a single manufacturer by ID.
+    """
+    db_man = crud.get_manufacturer(db, manufacturer_id)
+    if not db_man:
+        raise HTTPException(status_code=404, detail="Manufacturer not found")
+    return db_man
+
+
 @router.post("/manufacturers", response_model=schemas.Manufacturer)
 async def create_manufacturer(
     form: ManufacturerForm = Depends(),
@@ -178,7 +205,6 @@ async def create_manufacturer(
     """
     Creates a manufacturer with an optional logo.
     """
-    # We still check if Category exists for data integrity
     cat = db.query(models.Category).filter(
         models.Category.id == form.category_id
     ).first()
@@ -187,7 +213,6 @@ async def create_manufacturer(
 
     logo_path = None
     if logo:
-        # Category name removed from here
         fn = utils.generate_manufacturer_logo_filename(form.name, logo.filename)
         logo_path = f"static/uploads/{fn}"
         with open(logo_path, "wb") as buffer:
@@ -212,7 +237,7 @@ async def update_manufacturer(
     db: Session = Depends(get_db)
 ):
     """
-    Updates a manufacturer's details and optional logo.
+    Updates a manufacturer and cleans up the old logo if a new one is sent.
     """
     db_man = crud.get_manufacturer(db, manufacturer_id)
     if not db_man:
@@ -220,10 +245,12 @@ async def update_manufacturer(
 
     logo_path = None
     if logo:
-        # Use new name if provided, otherwise fallback to existing DB name
-        name_for_file = form.name or db_man.name
+        # Delete old file
+        if db_man.logo_url and os.path.exists(db_man.logo_url):
+            os.remove(db_man.logo_url)
+            
         fn = utils.generate_manufacturer_logo_filename(
-            name_for_file, 
+            form.name or db_man.name, 
             logo.filename
         )
         logo_path = f"static/uploads/{fn}"
@@ -236,6 +263,25 @@ async def update_manufacturer(
         logo_url=logo_path
     )
     return crud.update_manufacturer(db, manufacturer_id, update_data)
+
+
+@router.delete(
+    "/manufacturers/{manufacturer_id}",
+    status_code=status.HTTP_204_NO_CONTENT
+)
+def delete_manufacturer(manufacturer_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes a manufacturer and its logo file.
+    """
+    db_man = crud.get_manufacturer(db, manufacturer_id)
+    if not db_man:
+        raise HTTPException(status_code=404, detail="Manufacturer not found")
+
+    if db_man.logo_url and os.path.exists(db_man.logo_url):
+        os.remove(db_man.logo_url)
+
+    crud.delete_manufacturer(db, manufacturer_id)
+    return None
 
 
 # --- AIRCRAFT MODEL ROUTES ---
@@ -266,7 +312,7 @@ async def create_aircraft_model(
     db: Session = Depends(get_db)
 ):
     """
-    Creates a new aircraft model using the AircraftForm dependency.
+    Creates a new aircraft model with technical specs.
     """
     man = db.query(models.Manufacturer).filter(
         models.Manufacturer.id == form.manufacturer_id
@@ -312,7 +358,7 @@ async def update_aircraft_model(
     db: Session = Depends(get_db)
 ):
     """
-    Updates an aircraft model's technical specs and optional image.
+    Updates an aircraft model and cleans up the old photo if necessary.
     """
     db_model = crud.get_aircraft_model(db, model_id)
     if not db_model:
@@ -320,6 +366,9 @@ async def update_aircraft_model(
 
     image_path = None
     if image:
+        if db_model.image_url and os.path.exists(db_model.image_url):
+            os.remove(db_model.image_url)
+
         man = db_model.manufacturer
         fn = utils.generate_aircraft_image_filename(
             category=man.category.name,
@@ -355,9 +404,14 @@ async def update_aircraft_model(
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_aircraft_model(model_id: int, db: Session = Depends(get_db)):
     """
-    Deletes an aircraft model by ID.
+    Deletes an aircraft model and its technical photo.
     """
-    success = crud.delete_aircraft_model(db, model_id)
-    if not success:
+    db_model = crud.get_aircraft_model(db, model_id)
+    if not db_model:
         raise HTTPException(status_code=404, detail="Model not found")
+
+    if db_model.image_url and os.path.exists(db_model.image_url):
+        os.remove(db_model.image_url)
+
+    crud.delete_aircraft_model(db, model_id)
     return None

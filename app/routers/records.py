@@ -68,11 +68,21 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[schemas.SpeedRecord])
-def read_records(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_records(
+    model_id: Optional[int] = None,  # ADD THIS PARAMETER
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
     """
-    Returns a paginated list of speed records.
+    Returns records, optionally filtered by aircraft model.
     """
-    return crud.get_records(db, skip=skip, limit=limit)
+    query = db.query(models.SpeedRecord)
+
+    if model_id:
+        query = query.filter(models.SpeedRecord.model_id == model_id)
+
+    return query.offset(skip).limit(limit).all()
 
 
 @router.get("/{record_id}", response_model=schemas.SpeedRecord)

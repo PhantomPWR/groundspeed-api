@@ -45,7 +45,7 @@ class ManufacturerBase(BaseModel):
     Base properties for a manufacturer.
     """
     name: str
-    logo_url: Optional[str] = None  # Added here so it's inherited
+    logo_url: Optional[str] = None
 
 
 class ManufacturerCreate(ManufacturerBase):
@@ -61,7 +61,15 @@ class ManufacturerUpdate(BaseModel):
     """
     name: Optional[str] = None
     category_id: Optional[int] = None
-    logo_url: Optional[str] = None  # Added for updates
+    logo_url: Optional[str] = None
+
+
+class ManufacturerMinimal(BaseModel):
+    """
+    Small schema for manufacturer names used in nested responses.
+    """
+    name: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Manufacturer(ManufacturerBase):
@@ -70,7 +78,6 @@ class Manufacturer(ManufacturerBase):
     """
     id: int
     category_id: int
-    logo_url: Optional[str] = None  # Added to the response
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -100,7 +107,7 @@ class AircraftModelCreate(AircraftModelBase):
 
 class AircraftModelUpdate(BaseModel):
     """
-    Data for updating an aircraft model (all fields optional).
+    Data for updating an aircraft model.
     """
     name: Optional[str] = None
     passengers: Optional[str] = None
@@ -112,6 +119,16 @@ class AircraftModelUpdate(BaseModel):
     max_cruising_speed: Optional[str] = None
     thrust_power: Optional[str] = None
     manufacturer_id: Optional[int] = None
+
+
+class AircraftModelMinimal(BaseModel):
+    """
+    Small schema for aircraft names used in nested responses.
+    """
+    id: int
+    name: str
+    manufacturer: ManufacturerMinimal  # Nests the manufacturer name too
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AircraftModel(AircraftModelBase):
@@ -133,8 +150,8 @@ class SpeedRecordBase(BaseModel):
     pilot_name: Optional[str] = None
     airline: Optional[str] = None
     groundspeed: float
-    flight_date: Optional[date] = None  # Pydantic handles ISO strings to dates
-    description: Optional[str] = None   # Notes
+    flight_date: Optional[date] = None
+    description: Optional[str] = None
 
 
 class SpeedRecordCreate(SpeedRecordBase):
@@ -146,10 +163,14 @@ class SpeedRecordCreate(SpeedRecordBase):
 
 class SpeedRecord(SpeedRecordBase):
     """
-    The full Speed Record schema as returned by the API.
+    The full Speed Record schema including nested aircraft data.
     """
     id: int
     photo_url: str
     created_at: datetime
     model_id: int
+    # This is the "Magic" line that pulls in
+    # the Aircraft and Manufacturer names
+    aircraft_model: AircraftModelMinimal
+
     model_config = ConfigDict(from_attributes=True)
