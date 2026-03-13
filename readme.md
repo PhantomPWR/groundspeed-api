@@ -34,3 +34,5 @@ A high-performance, modular REST API built with FastAPI to manage aviation groun
 - **Decoupled Design:** Learned that the Database Model and the API Schema are separate entities; adding a column to one does not automatically expose it to the other.
 - **Role-Based Security:** Implemented a WordPress-style hierarchy where permissions are checked via FastAPI dependencies before reaching the logic.
 - **Asset Management:** Storing physical files on disk while maintaining path references in the database ensures high performance and SEO benefits.
+
+.
